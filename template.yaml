@@ -1,70 +1,197 @@
 apiVersion: scaffolder.backstage.io/v1beta3
 kind: Template
-# some metadata about the template itself
 metadata:
-  name: v1beta3-demo
-  title: Test Action template
-  description: scaffolder v1beta3 template demo
+  name: sqs-with-dlq
+  title: Standard AWS SQS 
+  description: PR to create AWS SQS Queue
+  tags:
+    - infrastructure
+    - terraform
+    - aws
+    - queue
+  links:
+    - title: Documentation
+      url: https://backstage.io/docs/features/software-templates
+      icon: docs
+    - title: Source
+      url: https://github.com/gabriel-dantas98/backstage-scaffolders/blob/main/basic-react-app/create-web-app.yaml
+      icon: github
 spec:
-  owner: backstage/techdocs-core
-  type: service
+  owner: cloud_platform
+  type: infra-a-code
 
-  # these are the steps which are rendered in the frontend with the form input
   parameters:
-    - title: Fill in some steps
-      required:
-        - name
+    - title: Inform the SQS initial information
+     required:
+        - queue_name
       properties:
-        name:
-          title: Name
+        queue_name:
+          title: Queue name
           type: string
-          description: Unique name of the component
-          ui:autofocus: true
-          ui:options:
-            rows: 5
-    - title: Choose a location
-      required:
-        - repoUrl
-      properties:
-        repoUrl:
-          title: Repository Location
-          type: string
-          ui:field: RepoUrlPicker
-          ui:options:
-            allowedHosts:
-              - github.com
+          description: |
+            The name of the queue
 
-  # here's the steps that are executed in series in the scaffolder backend
+        environment:
+          title: The environment the resource is part of
+          type: string
+          description: Which environment your application will be created in is usually related to the AWS account you will be provisioning your resource to.
+          default: prod
+          enum: [prod, staging, dev]
+
+        create_dlq:
+          title: Create a DLQ with redrive policy? 
+          type: boolean
+          description: If you desire to create a DLQ with redrive policy
+          default: true
+          ui:widget: radio
+
+    - title: Information about ownership (using in tags)
+      properties:
+        tribe:
+          title: Tribe
+          type: string
+          description: |
+            Select the Tribe owner of resource, we used as a tags in AWS
+          ui:field: OwnerPicker
+          ui:options:
+            allowedKinds:
+              - group
+
+        squad:
+          title: Squad
+          type: string
+          description: |
+            Select the Tribe owner of resource, we used as a tags in AWS
+          ui:field: OwnerPicker
+          ui:options:
+            allowedKinds:
+              - group
+
   steps:
-    - id: fetch
-      name: Template Docs Skeleton
+    - id: template
+      name: Render terraform files
       action: fetch:template
       input:
+        targetPath: ./templates/outputs
         url: ./skeleton
         values:
-          name: ${{ parameters.name }}
-          description: ${{ parameters.description }}
-          destination: ${{ parameters.repoUrl | parseRepoUrl }}
-          owner: ${{ parameters.owner }}
+          queue_name: ${{ parameters.queue_name }}
+          create_dlq: ${{ parameters.create_dlq }}
+          environment: ${{ parameters.environment }}
+          squad: ${{ parameters.squad }}
+          tribe: ${{ parameters.tribe }}
 
-    - id: fetch-docs
-      name: Fetch Docs
-      action: fetch:plain
+    - id: show_workspace
+      name: Show workspace files
+      action: debug:log
       input:
-        targetPath: ./community
-        url: https://github.com/backstage/community/tree/main/backstage-community-sessions
+        listWorkspace: true
+  
+    - id: terraform_pr
+      name: Create terraform PR
+      action: publish:github:pull-request
+      input:
+        repoUrl: github.com?owner=gabriel-dantas98&repo=piltover-infrastructure
+        branchName: 'sw-template/sqs/${{ parameters.queue_name }}'
+        title: '🔩 Create ${{ parameters.queue_name }} AWS SQS'
+        description: |
+          ## Creating SQS ${{ parameters.queue_name }}
+          
+          This is an initial pull request to create an SQS queue and was created based on the Backstage template.
 
-    - id: publish
-      name: Publish
-      action: publish:github
-      input:
-        allowedHosts: ['github.com']
-        description: This is ${{ parameters.name }}
-        repoUrl: ${{ parameters.repoUrl }}
+          If you need to add more parameters, check the official documentation - https://registry.terraform.io/modules/terraform-aws-modules/sqs/aws/latest
 
-    - id: register
-      name: Register
-      action: catalog:register
+          *created by: [Backstage Software Template](https://hextech-portal.gdantas.com/create)* 👷‍♂️⚙️👷‍♀️
+        sourcePath: ./templates/outputs
+        targetPath: 'aws/production/sqs/${{ parameters.queue_name }}'
+
+    - id: label_pr
+      name: Add labels to PR
+      action: github:issues:label
       input:
-        repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
-        catalogInfoPath: '/catalog-info.yaml'
+        repoUrl: github.com?owner=gabriel-dantas98&repo=piltover-infrastructure
+        number: '${{ steps.terraform_pr.output.pullRequestNumber }}'
+        labels:
+          - terraform
+          - created-by-backstage
+          - ${{ parameters.environment }}
+          - sqs
+
+  output:
+    links:
+      - title: 'Go to pull request :D'
+        url: ${{ steps.terraform_pr .output.remoteUrl }}
+        icon: github
+      - title: 'To view more check documentation'
+        icon: docs
+        url: "https://registry.terraform.io/modules/terraform-aws-modules/sqs/aws/latest"
+# apiVersion: scaffolder.backstage.io/v1beta3
+# kind: Template
+# # some metadata about the template itself
+# metadata:
+#   name: v1beta3-demo
+#   title: Test Action template
+#   description: scaffolder v1beta3 template demo
+# spec:
+#   owner: backstage/techdocs-core
+#   type: service
+
+#   # these are the steps which are rendered in the frontend with the form input
+#   parameters:
+#     - title: Fill in some steps
+#       required:
+#         - name
+#       properties:
+#         name:
+#           title: Name
+#           type: string
+#           description: Unique name of the component
+#           ui:autofocus: true
+#           ui:options:
+#             rows: 5
+#     - title: Choose a location
+#       required:
+#         - repoUrl
+#       properties:
+#         repoUrl:
+#           title: Repository Location
+#           type: string
+#           ui:field: RepoUrlPicker
+#           ui:options:
+#             allowedHosts:
+#               - github.com
+
+#   # here's the steps that are executed in series in the scaffolder backend
+#   steps:
+#     - id: fetch
+#       name: Template Docs Skeleton
+#       action: fetch:template
+#       input:
+#         url: ./skeleton
+#         values:
+#           name: ${{ parameters.name }}
+#           description: ${{ parameters.description }}
+#           destination: ${{ parameters.repoUrl | parseRepoUrl }}
+#           owner: ${{ parameters.owner }}
+
+#     - id: fetch-docs
+#       name: Fetch Docs
+#       action: fetch:plain
+#       input:
+#         targetPath: ./community
+#         url: https://github.com/backstage/community/tree/main/backstage-community-sessions
+
+#     - id: publish
+#       name: Publish
+#       action: publish:github
+#       input:
+#         allowedHosts: ['github.com']
+#         description: This is ${{ parameters.name }}
+#         repoUrl: ${{ parameters.repoUrl }}
+
+#     - id: register
+#       name: Register
+#       action: catalog:register
+#       input:
+#         repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
+#         catalogInfoPath: '/catalog-info.yaml'
