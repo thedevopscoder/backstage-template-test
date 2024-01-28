@@ -36,13 +36,16 @@ spec:
 
   # here's the steps that are executed in series in the scaffolder backend
   steps:
-    - id: fetch-base
-      name: Fetch Base
+    - id: fetch
+      name: Template Docs Skeleton
       action: fetch:template
       input:
-        url: ./template
+        url: ./skeleton
         values:
           name: ${{ parameters.name }}
+          description: ${{ parameters.description }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+          owner: ${{ parameters.owner }}
 
     - id: fetch-docs
       name: Fetch Docs
